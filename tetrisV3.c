@@ -7,15 +7,15 @@
 #include <string.h>
 
 // Adjustable parameters
-#define CELL_SIZE 20
-#define GRID_WIDTH 20
+#define CELL_SIZE 15
+#define GRID_WIDTH 12
 #define GRID_HEIGHT 30
-#define GRID_X_OFFSET 50
-#define GRID_Y_OFFSET 50
+#define GRID_X_OFFSET 20
+#define GRID_Y_OFFSET 20
 #define INITIAL_FALL_DELAY 700
 #define LINES_PER_LEVEL 10
-#define PREVIEW_SIZE 100
-#define FONT_SIZE 20
+#define PREVIEW_SIZE 50
+#define FONT_SIZE 16
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -181,20 +181,22 @@ void clear_lines() {
 
 void draw_preview() {
     int preview_x = GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50;
-    int preview_y = GRID_Y_OFFSET + 150;
+    int preview_y = GRID_Y_OFFSET + 250;
     
     SDL_Rect border = {preview_x - 10, preview_y - 10, PREVIEW_SIZE + 20, PREVIEW_SIZE + 20};
-    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderFillRect(renderer, &border);
+    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+    SDL_RenderDrawRect(renderer, &border);
     
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             if (SHAPES[next_shape][0][i][j]) {
                 SDL_Rect rect = {
-                    preview_x + j * (CELL_SIZE/2) + (PREVIEW_SIZE - 2*CELL_SIZE)/2,
-                    preview_y + i * (CELL_SIZE/2) + (PREVIEW_SIZE - 2*CELL_SIZE)/2,
-                    CELL_SIZE/2 - 1,
-                    CELL_SIZE/2 - 1
+                    preview_x + j * (CELL_SIZE) + (PREVIEW_SIZE - CELL_SIZE*4)/2,
+                    preview_y + i * (CELL_SIZE) + (PREVIEW_SIZE - CELL_SIZE*4)/2,
+                    CELL_SIZE,
+                    CELL_SIZE
                 };
                 SDL_Color c = color_schemes[level % 4][next_shape];
                 SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
@@ -252,9 +254,15 @@ void draw_game() {
     // Draw UI elements
     SDL_Color text_color = {255, 255, 255, 255};
     char info_text[256];
-    sprintf(info_text, "Level: %d\nScore: %d\nLines: %d", level, score, lines_cleared);
+    sprintf(info_text, "Level: %d", level);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET, text_color);
-    draw_text("Next:", GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + 100, text_color);
+	memset(info_text, 0, sizeof(info_text));
+    sprintf(info_text, "Score: %d", score);
+    draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 2, text_color);
+	memset(info_text, 0, sizeof(info_text));
+    sprintf(info_text, "Lines: %d", lines_cleared);
+    draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 4, text_color);
+    draw_text("Next:", GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + 200, text_color);
     draw_preview();
 
     if (game_over) {
