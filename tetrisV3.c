@@ -1,3 +1,5 @@
+//					gcc tetrisV3.c -lSDL2 -lSDL2_ttf -lm -o tetris
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdlib.h>
@@ -33,18 +35,18 @@ int fall_delay = INITIAL_FALL_DELAY;
 bool quit = false;
 bool game_over = false;
 
-// Color schemes for levels (RGBA)
+// Color schemes for levels (RGBA) - Bright colors only
 SDL_Color color_schemes[][7] = {
-    {{255,0,0,255}, {0,255,0,255}, {0,0,255,255},   // Red, Green, Blue
-    {255,255,0,255}, {255,0,255,255}, {0,255,255,255}, {128,128,128,255}}, // Level 1
+    {{255,100,100,255}, {100,255,100,255}, {100,100,255,255},  // Light Red, Light Green, Light Blue
+    {255,255,100,255}, {255,100,255,255}, {100,255,255,255}, {200,200,200,255}}, // Level 1
     
-    {{200,50,50,255}, {50,200,50,255}, {50,50,200,255},  // Darker shades
-    {200,200,50,255}, {200,50,200,255}, {50,200,200,255}, {160,160,160,255}}, // Level 2
+    {{255,150,150,255}, {150,255,150,255}, {150,150,255,255},  // Brighter shades
+    {255,255,150,255}, {255,150,255,255}, {150,255,255,255}, {220,220,220,255}}, // Level 2
     
-    {{128,0,0,255}, {0,128,0,255}, {0,0,128,255},    // Even darker
-    {128,128,0,255}, {128,0,128,255}, {0,128,128,255}, {200,200,200,255}}, // Level 3
+    {{255,200,200,255}, {200,255,200,255}, {200,200,255,255},  // Very bright
+    {255,255,200,255}, {255,200,255,255}, {200,255,255,255}, {240,240,240,255}}, // Level 3
     
-    {{255,128,0,255}, {128,255,0,255}, {0,255,128,255},  // Bright mixed
+    {{255,128,0,255}, {128,255,0,255}, {0,255,128,255},  // Bright mixed (unchanged from original)
     {128,0,255,255}, {255,0,128,255}, {128,255,128,255}, {255,255,255,255}}  // Level 4+
 };
 
@@ -210,17 +212,23 @@ void draw_game() {
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
 
-    // Draw grid background
-    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    // Draw grid background with distinct border for empty cells
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
             SDL_Rect rect = {
                 GRID_X_OFFSET + x * CELL_SIZE,
                 GRID_Y_OFFSET + y * CELL_SIZE,
-                CELL_SIZE,
-                CELL_SIZE
+                CELL_SIZE - 1,
+                CELL_SIZE - 1
             };
-            SDL_RenderDrawRect(renderer, &rect);
+            if (!grid[y][x]) {
+                // Fill empty cell with dark background
+                SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
+                SDL_RenderFillRect(renderer, &rect);
+                // Draw distinct border for empty cell
+                SDL_SetRenderDrawColor(renderer, 80, 80, 80, 255);
+                SDL_RenderDrawRect(renderer, &rect);
+            }
         }
     }
 
@@ -256,10 +264,10 @@ void draw_game() {
     char info_text[256];
     sprintf(info_text, "Level: %d", level);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET, text_color);
-	memset(info_text, 0, sizeof(info_text));
+    memset(info_text, 0, sizeof(info_text));
     sprintf(info_text, "Score: %d", score);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 2, text_color);
-	memset(info_text, 0, sizeof(info_text));
+    memset(info_text, 0, sizeof(info_text));
     sprintf(info_text, "Lines: %d", lines_cleared);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 4, text_color);
     draw_text("Next:", GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + 200, text_color);
@@ -326,10 +334,9 @@ void handle_input() {
                 case SDLK_q:
                     quit = true;
                     break;
-				case SDLK_ESCAPE:
-					quit = true;
-					break;
-				break;
+                case SDLK_ESCAPE:
+                    quit = true;
+                    break;
             }
         }
         else if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_DOWN) {
@@ -388,7 +395,7 @@ int main() {
         SDL_Delay(10);
     }
 
-	SDL_DestroyRenderer(renderer);
+    SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
