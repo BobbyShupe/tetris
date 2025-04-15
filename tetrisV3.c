@@ -1,5 +1,3 @@
-//					gcc tetrisV3.c -lSDL2 -lSDL2_ttf -lm -o tetris
-
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdlib.h>
@@ -18,6 +16,7 @@
 #define LINES_PER_LEVEL 10
 #define PREVIEW_SIZE 50
 #define FONT_SIZE 16
+#define CLEAR_ANIMATION_DELAY 30
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -37,57 +36,61 @@ bool game_over = false;
 
 // Color schemes for levels (RGBA) - Bright colors only
 SDL_Color color_schemes[][7] = {
-    {{255,100,100,255}, {100,255,100,255}, {100,100,255,255},  // Light Red, Light Green, Light Blue
-    {255,255,100,255}, {255,100,255,255}, {100,255,255,255}, {200,200,200,255}}, // Level 1
-    
-    {{255,150,150,255}, {150,255,150,255}, {150,150,255,255},  // Brighter shades
-    {255,255,150,255}, {255,150,255,255}, {150,255,255,255}, {220,220,220,255}}, // Level 2
-    
-    {{255,200,200,255}, {200,255,200,255}, {200,200,255,255},  // Very bright
-    {255,255,200,255}, {255,200,255,255}, {200,255,255,255}, {240,240,240,255}}, // Level 3
-    
-    {{255,128,0,255}, {128,255,0,255}, {0,255,128,255},  // Bright mixed (unchanged from original)
-    {128,0,255,255}, {255,0,128,255}, {128,255,128,255}, {255,255,255,255}}  // Level 4+
+    {{255,100,100,255}, {100,255,100,255}, {100,100,255,255},
+    {255,255,100,255}, {255,100,255,255}, {100,255,255,255}, {200,200,200,255}},
+    {{255,150,150,255}, {150,255,150,255}, {150,150,255,255},
+    {255,255,150,255}, {255,150,255,255}, {150,255,255,255}, {220,220,220,255}},
+    {{255,200,200,255}, {200,255,200,255}, {200,200,255,255},
+    {255,255,200,255}, {255,200,255,255}, {200,255,255,255}, {240,240,240,255}},
+    {{255,128,0,255}, {128,255,0,255}, {0,255,128,255},
+    {128,0,255,255}, {255,0,128,255}, {128,255,128,255}, {255,255,255,255}}
 };
 
 // Tetromino shapes (7 types × 4 rotations × 4x4 blocks)
 const int SHAPES[7][4][4][4] = {
-    // I
     {{{0,0,0,0}, {1,1,1,1}, {0,0,0,0}, {0,0,0,0}},
      {{0,0,1,0}, {0,0,1,0}, {0,0,1,0}, {0,0,1,0}},
      {{0,0,0,0}, {1,1,1,1}, {0,0,0,0}, {0,0,0,0}},
      {{0,0,1,0}, {0,0,1,0}, {0,0,1,0}, {0,0,1,0}}},
-    // O
     {{{0,0,0,0}, {0,1,1,0}, {0,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,1,0}, {0,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,1,0}, {0,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,1,0}, {0,1,1,0}, {0,0,0,0}}},
-    // T
     {{{0,0,0,0}, {0,1,0,0}, {1,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,0,0}, {0,1,1,0}, {0,1,0,0}},
      {{0,0,0,0}, {0,0,0,0}, {1,1,1,0}, {0,1,0,0}},
      {{0,0,0,0}, {0,1,0,0}, {1,1,0,0}, {0,1,0,0}}},
-    // L
     {{{0,0,0,0}, {0,0,1,0}, {1,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,0,0}, {0,1,0,0}, {0,1,1,0}},
      {{0,0,0,0}, {0,0,0,0}, {1,1,1,0}, {1,0,0,0}},
      {{0,0,0,0}, {1,1,0,0}, {0,1,0,0}, {0,1,0,0}}},
-    // J
     {{{0,0,0,0}, {1,0,0,0}, {1,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,1,0}, {0,1,0,0}, {0,1,0,0}},
      {{0,0,0,0}, {0,0,0,0}, {1,1,1,0}, {0,0,1,0}},
      {{0,0,0,0}, {0,1,0,0}, {0,1,0,0}, {1,1,0,0}}},
-    // S
     {{{0,0,0,0}, {0,1,1,0}, {1,1,0,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,1,0,0}, {0,1,1,0}, {0,0,1,0}},
      {{0,0,0,0}, {0,0,0,0}, {0,1,1,0}, {1,1,0,0}},
      {{0,0,0,0}, {1,0,0,0}, {1,1,0,0}, {0,1,0,0}}},
-    // Z
     {{{0,0,0,0}, {1,1,0,0}, {0,1,1,0}, {0,0,0,0}},
      {{0,0,0,0}, {0,0,1,0}, {0,1,1,0}, {0,1,0,0}},
      {{0,0,0,0}, {0,0,0,0}, {1,1,0,0}, {0,1,1,0}},
      {{0,0,0,0}, {0,1,0,0}, {1,1,0,0}, {1,0,0,0}}},
 };
+
+// Function declarations
+void draw_game();
+void update_level();
+void draw_text(const char* text, int x, int y, SDL_Color color);
+void draw_block(int x, int y, SDL_Color color);
+int check_collision(int x, int y, int rotation);
+void new_piece();
+void merge_piece();
+void animate_line_clear(int rows[], int num_rows);
+void clear_lines();
+void draw_preview();
+void reset_game();
+void handle_input();
 
 void update_level() {
     level = 1 + (lines_cleared / LINES_PER_LEVEL);
@@ -96,7 +99,16 @@ void update_level() {
 
 void draw_text(const char* text, int x, int y, SDL_Color color) {
     SDL_Surface* surface = TTF_RenderText_Solid(font, text, color);
+    if (!surface) {
+        fprintf(stderr, "Text render failed: %s\n", TTF_GetError());
+        return;
+    }
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        fprintf(stderr, "Texture creation failed: %s\n", SDL_GetError());
+        SDL_FreeSurface(surface);
+        return;
+    }
     SDL_Rect rect = {x, y, surface->w, surface->h};
     SDL_RenderCopy(renderer, texture, NULL, &rect);
     SDL_FreeSurface(surface);
@@ -155,8 +167,88 @@ void merge_piece() {
     }
 }
 
+void animate_line_clear(int rows[], int num_rows) {
+    int center = GRID_WIDTH / 2;
+    int max_offset = (GRID_WIDTH + 1) / 2;
+    int temp_grid[GRID_HEIGHT][GRID_WIDTH];
+
+    // Copy the current grid state
+    memcpy(temp_grid, grid, sizeof(grid));
+
+    for (int offset = 0; offset < max_offset; offset++) {
+        // Clear the renderer
+        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+        SDL_RenderClear(renderer);
+
+        // Clear cells in the temp grid for this offset
+        for (int r = 0; r < num_rows; r++) {
+            int row = rows[r];
+            if (center - offset >= 0)
+                temp_grid[row][center - offset] = 0;
+            if (center + offset < GRID_WIDTH)
+                temp_grid[row][center + offset] = 0;
+            if (GRID_WIDTH % 2 == 0 && center - offset - 1 >= 0)
+                temp_grid[row][center - offset - 1] = 0;
+        }
+
+        // Draw grid background
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            for (int x = 0; x < GRID_WIDTH; x++) {
+                SDL_Rect rect = {
+                    GRID_X_OFFSET + x * CELL_SIZE,
+                    GRID_Y_OFFSET + y * CELL_SIZE,
+                    CELL_SIZE - 1,
+                    CELL_SIZE - 1
+                };
+                if (!temp_grid[y][x]) {
+                    SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
+                    SDL_RenderFillRect(renderer, &rect);
+                    SDL_SetRenderDrawColor(renderer, 80, 80, 80, 255);
+                    SDL_RenderDrawRect(renderer, &rect);
+                }
+            }
+        }
+
+        // Draw all pieces from temp_grid
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            for (int x = 0; x < GRID_WIDTH; x++) {
+                if (temp_grid[y][x]) {
+                    int shape_idx = temp_grid[y][x] - 1;
+                    SDL_Color c = color_schemes[level % 4][shape_idx];
+                    draw_block(x, y, c);
+                }
+            }
+        }
+
+        // Draw UI elements
+        SDL_Color text_color = {255, 255, 255, 255};
+        char info_text[256];
+        snprintf(info_text, sizeof(info_text), "Level: %d", level);
+        draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET, text_color);
+        snprintf(info_text, sizeof(info_text), "Score: %d", score);
+        draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 2, text_color);
+        snprintf(info_text, sizeof(info_text), "Lines: %d", lines_cleared);
+        draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 4, text_color);
+        draw_text("Next:", GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + 200, text_color);
+        draw_preview();
+
+        SDL_RenderPresent(renderer);
+        SDL_Delay(CLEAR_ANIMATION_DELAY);
+    }
+
+    // Shift rows down in the actual grid
+    for (int i = num_rows - 1; i >= 0; i--) {
+        int row = rows[i];
+        for (int r = row; r > 0; r--)
+            memcpy(grid[r], grid[r-1], sizeof(grid[0]));
+        memset(grid[0], 0, sizeof(grid[0]));
+    }
+}
+
 void clear_lines() {
     int lines_removed = 0;
+    int rows_to_clear[4] = {-1, -1, -1, -1};
+
     for (int row = GRID_HEIGHT - 1; row >= 0; row--) {
         int full = 1;
         for (int col = 0; col < GRID_WIDTH; col++) {
@@ -166,15 +258,13 @@ void clear_lines() {
             }
         }
         if (full) {
+            rows_to_clear[lines_removed] = row;
             lines_removed++;
-            for (int r = row; r > 0; r--)
-                memcpy(grid[r], grid[r-1], sizeof(grid[0]));
-            memset(grid[0], 0, sizeof(grid[0]));
-            row++;
         }
     }
-    
+
     if (lines_removed > 0) {
+        animate_line_clear(rows_to_clear, lines_removed);
         lines_cleared += lines_removed;
         score += lines_removed * 100 * level;
         update_level();
@@ -195,10 +285,10 @@ void draw_preview() {
         for (int j = 0; j < 4; j++) {
             if (SHAPES[next_shape][0][i][j]) {
                 SDL_Rect rect = {
-                    preview_x + j * (CELL_SIZE) + (PREVIEW_SIZE - CELL_SIZE*4)/2,
-                    preview_y + i * (CELL_SIZE) + (PREVIEW_SIZE - CELL_SIZE*4)/2,
-                    CELL_SIZE,
-                    CELL_SIZE
+                    preview_x + j * CELL_SIZE + (PREVIEW_SIZE - CELL_SIZE*4)/2,
+                    preview_y + i * CELL_SIZE + (PREVIEW_SIZE - CELL_SIZE*4)/2,
+                    CELL_SIZE - 1,
+                    CELL_SIZE - 1
                 };
                 SDL_Color c = color_schemes[level % 4][next_shape];
                 SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
@@ -222,10 +312,8 @@ void draw_game() {
                 CELL_SIZE - 1
             };
             if (!grid[y][x]) {
-                // Fill empty cell with dark background
                 SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
                 SDL_RenderFillRect(renderer, &rect);
-                // Draw distinct border for empty cell
                 SDL_SetRenderDrawColor(renderer, 80, 80, 80, 255);
                 SDL_RenderDrawRect(renderer, &rect);
             }
@@ -250,7 +338,7 @@ void draw_game() {
                 if (SHAPES[current_shape][current_rotation][i][j]) {
                     int px = current_x + j;
                     int py = current_y + i;
-                    if (py >= 0) {
+                    if (py >= 0 && px >= 0 && px < GRID_WIDTH) {
                         SDL_Color c = color_schemes[level % 4][current_shape];
                         draw_block(px, py, c);
                     }
@@ -262,13 +350,11 @@ void draw_game() {
     // Draw UI elements
     SDL_Color text_color = {255, 255, 255, 255};
     char info_text[256];
-    sprintf(info_text, "Level: %d", level);
+    snprintf(info_text, sizeof(info_text), "Level: %d", level);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET, text_color);
-    memset(info_text, 0, sizeof(info_text));
-    sprintf(info_text, "Score: %d", score);
+    snprintf(info_text, sizeof(info_text), "Score: %d", score);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 2, text_color);
-    memset(info_text, 0, sizeof(info_text));
-    sprintf(info_text, "Lines: %d", lines_cleared);
+    snprintf(info_text, sizeof(info_text), "Lines: %d", lines_cleared);
     draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 4, text_color);
     draw_text("Next:", GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + 200, text_color);
     draw_preview();
@@ -332,8 +418,6 @@ void handle_input() {
                     new_piece();
                     break;
                 case SDLK_q:
-                    quit = true;
-                    break;
                 case SDLK_ESCAPE:
                     quit = true;
                     break;
@@ -355,30 +439,48 @@ int main() {
     
     if (TTF_Init() < 0) {
         fprintf(stderr, "TTF init failed: %s\n", TTF_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    window = SDL_CreateWindow("Tetris",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        GRID_X_OFFSET * 2 + GRID_WIDTH * CELL_SIZE + 200,
+        GRID_Y_OFFSET * 2 + GRID_HEIGHT * CELL_SIZE,
+        SDL_WINDOW_SHOWN);
+    if (!window) {
+        fprintf(stderr, "Window creation failed: %s\n", SDL_GetError());
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!renderer) {
+        fprintf(stderr, "Renderer creation failed: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
         return 1;
     }
 
     font = TTF_OpenFont("arial.ttf", FONT_SIZE);
     if (!font) {
         fprintf(stderr, "Failed to load font: %s\n", TTF_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
         return 1;
     }
 
-    window = SDL_CreateWindow("Tetris",
-        SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED,
-        GRID_X_OFFSET * 2 + GRID_WIDTH * CELL_SIZE + 200, // Extra space for UI
-        GRID_Y_OFFSET * 2 + GRID_HEIGHT * CELL_SIZE,
-        SDL_WINDOW_SHOWN);
-
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     next_shape = rand() % 7;
     new_piece();
 
     while (!quit) {
         handle_input();
         
-        // Automatic falling
         Uint32 current_time = SDL_GetTicks();
         if (current_time - last_fall > fall_delay) {
             if (!check_collision(current_x, current_y + 1, current_rotation)) {
@@ -395,8 +497,10 @@ int main() {
         SDL_Delay(10);
     }
 
+    TTF_CloseFont(font);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_Quit();
     SDL_Quit();
     return 0;
 }
