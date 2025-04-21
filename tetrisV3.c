@@ -16,7 +16,6 @@
 #define LINES_PER_LEVEL 10
 #define PREVIEW_SIZE 50
 #define FONT_SIZE 16
-#define CLEAR_ANIMATION_DELAY 30
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -86,11 +85,20 @@ void draw_block(int x, int y, SDL_Color color);
 int check_collision(int x, int y, int rotation);
 void new_piece();
 void merge_piece();
-void animate_line_clear(int rows[], int num_rows);
 void clear_lines();
 void draw_preview();
 void reset_game();
 void handle_input();
+
+// Helper function to invert color
+SDL_Color invert_color(SDL_Color color) {
+    return (SDL_Color){
+        255 - color.r,
+        255 - color.g,
+        255 - color.b,
+        color.a
+    };
+}
 
 void update_level() {
     level = 1 + (lines_cleared / LINES_PER_LEVEL);
@@ -167,88 +175,11 @@ void merge_piece() {
     }
 }
 
-void animate_line_clear(int rows[], int num_rows) {
-    int center = GRID_WIDTH / 2;
-    int max_offset = (GRID_WIDTH + 1) / 2;
-    int temp_grid[GRID_HEIGHT][GRID_WIDTH];
-
-    // Copy the current grid state
-    memcpy(temp_grid, grid, sizeof(grid));
-
-    for (int offset = 0; offset < max_offset; offset++) {
-        // Clear the renderer
-        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
-        SDL_RenderClear(renderer);
-
-        // Clear cells in the temp grid for this offset
-        for (int r = 0; r < num_rows; r++) {
-            int row = rows[r];
-            if (center - offset >= 0)
-                temp_grid[row][center - offset] = 0;
-            if (center + offset < GRID_WIDTH)
-                temp_grid[row][center + offset] = 0;
-            if (GRID_WIDTH % 2 == 0 && center - offset - 1 >= 0)
-                temp_grid[row][center - offset - 1] = 0;
-        }
-
-        // Draw grid background
-        for (int y = 0; y < GRID_HEIGHT; y++) {
-            for (int x = 0; x < GRID_WIDTH; x++) {
-                SDL_Rect rect = {
-                    GRID_X_OFFSET + x * CELL_SIZE,
-                    GRID_Y_OFFSET + y * CELL_SIZE,
-                    CELL_SIZE - 1,
-                    CELL_SIZE - 1
-                };
-                if (!temp_grid[y][x]) {
-                    SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
-                    SDL_RenderFillRect(renderer, &rect);
-                    SDL_SetRenderDrawColor(renderer, 80, 80, 80, 255);
-                    SDL_RenderDrawRect(renderer, &rect);
-                }
-            }
-        }
-
-        // Draw all pieces from temp_grid
-        for (int y = 0; y < GRID_HEIGHT; y++) {
-            for (int x = 0; x < GRID_WIDTH; x++) {
-                if (temp_grid[y][x]) {
-                    int shape_idx = temp_grid[y][x] - 1;
-                    SDL_Color c = color_schemes[level % 4][shape_idx];
-                    draw_block(x, y, c);
-                }
-            }
-        }
-
-        // Draw UI elements
-        SDL_Color text_color = {255, 255, 255, 255};
-        char info_text[256];
-        snprintf(info_text, sizeof(info_text), "Level: %d", level);
-        draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET, text_color);
-        snprintf(info_text, sizeof(info_text), "Score: %d", score);
-        draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 2, text_color);
-        snprintf(info_text, sizeof(info_text), "Lines: %d", lines_cleared);
-        draw_text(info_text, GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + (FONT_SIZE + 2) * 4, text_color);
-        draw_text("Next:", GRID_X_OFFSET + GRID_WIDTH * CELL_SIZE + 50, GRID_Y_OFFSET + 200, text_color);
-        draw_preview();
-
-        SDL_RenderPresent(renderer);
-        SDL_Delay(CLEAR_ANIMATION_DELAY);
-    }
-
-    // Shift rows down in the actual grid
-    for (int i = num_rows - 1; i >= 0; i--) {
-        int row = rows[i];
-        for (int r = row; r > 0; r--)
-            memcpy(grid[r], grid[r-1], sizeof(grid[0]));
-        memset(grid[0], 0, sizeof(grid[0]));
-    }
-}
-
 void clear_lines() {
     int lines_removed = 0;
     int rows_to_clear[4] = {-1, -1, -1, -1};
 
+    // Identify full rows
     for (int row = GRID_HEIGHT - 1; row >= 0; row--) {
         int full = 1;
         for (int col = 0; col < GRID_WIDTH; col++) {
@@ -264,10 +195,34 @@ void clear_lines() {
     }
 
     if (lines_removed > 0) {
-        animate_line_clear(rows_to_clear, lines_removed);
         lines_cleared += lines_removed;
         score += lines_removed * 100 * level;
         update_level();
+
+        // Clear full rows
+        for (int i = 0; i < lines_removed; i++) {
+            memset(grid[rows_to_clear[i]], 0, sizeof(grid[0]));
+        }
+
+        // Shift non-cleared rows down
+        int temp_grid[GRID_HEIGHT][GRID_WIDTH] = {0};
+        int dst = GRID_HEIGHT - 1;
+        for (int src = GRID_HEIGHT - 1; src >= 0; src--) {
+            bool is_cleared = false;
+            for (int i = 0; i < lines_removed; i++) {
+                if (src == rows_to_clear[i]) {
+                    is_cleared = true;
+                    break;
+                }
+            }
+            if (!is_cleared) {
+                memcpy(temp_grid[dst], grid[src], sizeof(grid[0]));
+                dst--;
+            }
+        }
+
+        // Copy shifted grid back
+        memcpy(grid, temp_grid, sizeof(grid));
     }
 }
 
@@ -302,7 +257,7 @@ void draw_game() {
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
 
-    // Draw grid background with distinct border for empty cells
+    // Draw grid background
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
             SDL_Rect rect = {
